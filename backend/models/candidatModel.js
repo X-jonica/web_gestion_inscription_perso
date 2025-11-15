@@ -1,115 +1,124 @@
-const pool = require("../config/db");
+const db = require("../config/db");
 
 const Candidat = {
-   getAll: async () => {
-      const sql = `SELECT * FROM candidats`;
-      const [rows, fields] = await pool.query(sql);
-      console.log("Résultat SQL :", rows);
-      return rows;
-   },
+    getAll: () => {
+        const sql = `SELECT * FROM candidats`;
+        const rows = db.prepare(sql).all();
+        return rows;
+    },
 
-   getById: async (id) => {
-      const sql = `SELECT * FROM candidats WHERE id = ?`;
-      const [rows] = await pool.query(sql, [id]);
-      return rows[0];
-   },
+    getById: (id) => {
+        const sql = `SELECT * FROM candidats WHERE id = ?`;
+        const row = db.prepare(sql).get(id);
+        return row;
+    },
 
-   add: async (candidat) => {
-      const {
-         nom,
-         prenom,
-         email,
-         telephone,
-         type_bacc,
-         annee_bacc,
-         recu_paiement,
-         password_hash,
-      } = candidat;
+    add: (candidat) => {
+        const {
+            nom,
+            prenom,
+            email,
+            telephone,
+            type_bacc,
+            annee_bacc,
+            recu_paiement,
+            password_hash,
+        } = candidat;
 
-      const sql = `
-      INSERT INTO candidats (nom, prenom, email, telephone, type_bacc, annee_bacc, recu_paiement, password_hash)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+        const sql = `
+            INSERT INTO candidats (
+                nom, prenom, email, telephone,
+                type_bacc, annee_bacc, recu_paiement, password_hash
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
 
-      const [result] = await pool.query(sql, [
-         nom,
-         prenom,
-         email,
-         telephone,
-         type_bacc,
-         annee_bacc,
-         recu_paiement,
-         password_hash,
-      ]);
+        const result = db
+            .prepare(sql)
+            .run(
+                nom,
+                prenom,
+                email,
+                telephone,
+                type_bacc,
+                annee_bacc,
+                recu_paiement,
+                password_hash
+            );
 
-      // ✅ retourne l'ID inséré
-      return result.insertId;
-   },
+        // SQLite renvoie lastInsertRowid
+        return result.lastInsertRowid;
+    },
 
-   update: async (id, candidat) => {
-      const {
-         nom,
-         prenom,
-         email,
-         telephone,
-         type_bacc,
-         annee_bacc,
-         recu_paiement,
-         password_hash,
-      } = candidat;
-      const sql = `
-      UPDATE candidats SET
-        nom = ?,
-        prenom = ?,
-        email = ?,
-        telephone = ?,
-        type_bacc = ?,
-        annee_bacc = ?,
-        recu_paiement = ?,
-        password_hash = ?
-      WHERE id = ?`;
-      const [result] = await pool.query(sql, [
-         nom,
-         prenom,
-         email,
-         telephone,
-         type_bacc,
-         annee_bacc,
-         recu_paiement,
-         password_hash,
-         id,
-      ]);
+    update: (id, candidat) => {
+        const {
+            nom,
+            prenom,
+            email,
+            telephone,
+            type_bacc,
+            annee_bacc,
+            recu_paiement,
+            password_hash,
+        } = candidat;
 
-      // Vérifier si la mise à jour a affecté une ligne
-      if (result.affectedRows === 0) {
-         throw new Error("Aucune mise à jour effectuée (ID introuvable)");
-      }
+        const sql = `
+            UPDATE candidats SET
+                nom = ?,
+                prenom = ?,
+                email = ?,
+                telephone = ?,
+                type_bacc = ?,
+                annee_bacc = ?,
+                recu_paiement = ?,
+                password_hash = ?
+            WHERE id = ?
+        `;
 
-      // 🔁 faire un SELECT pour obtenir la ligne modifié
-      const [rows] = await pool.query("SELECT * FROM candidats WHERE id = ?", [
-         id,
-      ]);
-      return rows[0];
-   },
+        const result = db
+            .prepare(sql)
+            .run(
+                nom,
+                prenom,
+                email,
+                telephone,
+                type_bacc,
+                annee_bacc,
+                recu_paiement,
+                password_hash,
+                id
+            );
 
-   delete: async (id) => {
-      const sql = `DELETE FROM candidats WHERE id = ?`;
-      await pool.query(sql, [id]);
-   },
+        if (result.changes === 0) {
+            throw new Error("Aucune mise à jour effectuée (ID introuvable)");
+        }
 
-   search: async (keyword) => {
-      const sql = `
-      SELECT * FROM candidats
-      WHERE nom ILIKE $1 OR prenom ILIKE $1 OR email ILIKE $1`;
-      const searchTerm = `%${keyword}%`;
-      const result = await pool.query(sql, [searchTerm]);
-      return result.rows;
-   },
+        return db.prepare("SELECT * FROM candidats WHERE id = ?").get(id);
+    },
 
-   count: async () => {
-      const sql = `SELECT COUNT(*) AS total FROM candidats`;
-      const [rows] = await pool.query(sql);
-      return rows[0].total;
-   },
+    delete: (id) => {
+        const sql = `DELETE FROM candidats WHERE id = ?`;
+        db.prepare(sql).run(id);
+    },
+
+    search: (keyword) => {
+        const sql = `
+            SELECT * FROM candidats
+            WHERE nom LIKE ? COLLATE NOCASE
+               OR prenom LIKE ? COLLATE NOCASE
+               OR email LIKE ? COLLATE NOCASE
+        `;
+
+        const term = `%${keyword}%`;
+
+        return db.prepare(sql).all(term, term, term);
+    },
+
+    count: () => {
+        const sql = `SELECT COUNT(*) AS total FROM candidats`;
+        const row = db.prepare(sql).get();
+        return row.total;
+    },
 };
 
 module.exports = Candidat;

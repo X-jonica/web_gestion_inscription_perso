@@ -1,11 +1,10 @@
-const pool = require("../config/db");
+const db = require("../config/db");
 
-async function trouverParEmail(email, password) {
-   const [rows] = await pool.query(
-      "SELECT * FROM admin WHERE email = ? AND mot_de_passe = ?",
-      [email, password]
-   );
-   return rows[0];
+function trouverParEmail(email, password) {
+    const stmt = db.prepare(
+        "SELECT * FROM admin WHERE email = ? AND mot_de_passe = ?"
+    );
+    return stmt.get(email, password);
 }
 
 module.exports = { trouverParEmail };

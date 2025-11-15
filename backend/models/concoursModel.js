@@ -1,32 +1,32 @@
-const pool = require("../config/db");
+const db = require("../config/db");
 
 const Concours = {
-   // Ajoute une inscription au concours
-   addInscription: async (candidatId, concoursId) => {
-      const sql = `INSERT INTO inscriptions (candidat_id, concours_id) VALUES (?, ?)`;
-      await pool.query(sql, [candidatId, concoursId]);
-   },
+    // Ajoute une inscription au concours
+    addInscription: (candidatId, concoursId) => {
+        const stmt = db.prepare(
+            `INSERT INTO inscriptions (candidat_id, concours_id) VALUES (?, ?)`
+        );
+        stmt.run(candidatId, concoursId);
+    },
 
-   // Récupère tous les concours ouverts
-   getConcoursOuverts: async () => {
-      const sql = `SELECT * FROM concours`;
-      const [rows] = await pool.query(sql);
-      return rows;
-   },
+    // Récupère tous les concours ouverts
+    getConcoursOuverts: () => {
+        const stmt = db.prepare(`SELECT * FROM concours`);
+        return stmt.all(); // retourne toutes les lignes
+    },
 
-   // Récupère tous les concours (statique)
-   getAll: async () => {
-      const sql = `SELECT * FROM concours`;
-      const [rows] = await pool.query(sql);
-      return rows;
-   },
+    // Récupère tous les concours
+    getAll: () => {
+        const stmt = db.prepare(`SELECT * FROM concours`);
+        return stmt.all();
+    },
 
-   // Compte le nombre total de concours
-   count: async () => {
-      const sql = `SELECT COUNT(*) as total FROM concours`;
-      const [rows] = await pool.query(sql);
-      return rows[0].total;
-   },
+    // Compte le nombre total de concours
+    count: () => {
+        const stmt = db.prepare(`SELECT COUNT(*) as total FROM concours`);
+        const row = stmt.get();
+        return row.total;
+    },
 };
 
 module.exports = Concours;

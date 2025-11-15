@@ -1,114 +1,130 @@
 const db = require("../config/db");
-const pool = require("../config/db");
 
 const Inscription = {
-   getAll: async () => {
-      const [rows] = await db.query("SELECT * FROM Inscriptions");
-      return rows;
-   },
+    getAll: () => {
+        const stmt = db.prepare("SELECT * FROM Inscriptions");
+        return stmt.all();
+    },
 
-   getById: async (id) => {
-      const [rows] = await db.query("SELECT * FROM Inscriptions WHERE id = ?", [
-         id,
-      ]);
-      return rows[0];
-   },
+    getById: (id) => {
+        const stmt = db.prepare("SELECT * FROM Inscriptions WHERE id = ?");
+        return stmt.get(id);
+    },
 
-   add: async ({ candidat_id, concours_id, date_inscription, statut }) => {
-      const [result] = await db.query(
-         "INSERT INTO Inscriptions (candidat_id, concours_id, date_inscription, statut) VALUES (?, ?, ?, ?)",
-         [candidat_id, concours_id, date_inscription, statut || "en_attente"]
-      );
-      return result.insertId;
-   },
-   update: async (
-      id,
-      { candidat_id, concours_id, date_inscription, statut }
-   ) => {
-      try {
-         await db.query(
-            "UPDATE Inscriptions SET candidat_id = ?, concours_id = ?, date_inscription = ?, statut = ? WHERE id = ?",
-            [candidat_id, concours_id, date_inscription, statut, id]
-         );
-      } catch (error) {
-         console.error("Erreur lors de la mise à jour :", error);
-         throw error; // pour que le contrôleur réponde avec le bon code
-      }
-   },
+    add: ({ candidat_id, concours_id, date_inscription, statut }) => {
+        const stmt = db.prepare(`
+            INSERT INTO Inscriptions (candidat_id, concours_id, date_inscription, statut)
+            VALUES (?, ?, ?, ?)
+        `);
 
-   delete: async (id) => {
-      await db.query("DELETE FROM Inscriptions WHERE id = ?", [id]);
-   },
+        const result = stmt.run(
+            candidat_id,
+            concours_id,
+            date_inscription,
+            statut || "en_attente"
+        );
 
-   getAllWithDetails: async () => {
-      const [rows] = await db.query(`
-      SELECT i.*, 
-             c.nom AS candidat_nom, c.prenom AS candidat_prenom,
-             co.mention AS concours_mention
-      FROM Inscriptions i
-      JOIN Candidats c ON i.candidat_id = c.id
-      JOIN Concours co ON i.concours_id = co.id
-    `);
-      return rows;
-   },
+        return result.lastInsertRowid; // équivalent à insertId
+    },
 
-   search: async (searchTerm, statutFilter = null) => {
-      let sql = `
-      SELECT i.*, 
-             c.nom AS candidat_nom, c.prenom AS candidat_prenom,
-             co.mention AS concours_mention
-      FROM Inscriptions i
-      JOIN Candidats c ON i.candidat_id = c.id
-      JOIN Concours co ON i.concours_id = co.id
-      WHERE (c.nom LIKE ? OR c.prenom LIKE ? OR co.mention LIKE ?)
-    `;
+    update: (id, { candidat_id, concours_id, date_inscription, statut }) => {
+        const stmt = db.prepare(`
+            UPDATE Inscriptions
+            SET candidat_id = ?, concours_id = ?, date_inscription = ?, statut = ?
+            WHERE id = ?
+        `);
 
-      const params = [`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`];
+        const result = stmt.run(
+            candidat_id,
+            concours_id,
+            date_inscription,
+            statut,
+            id
+        );
 
-      if (statutFilter) {
-         sql += " AND i.statut = ?";
-         params.push(statutFilter);
-      }
+        if (result.changes === 0) {
+            throw new Error("Aucune mise à jour effectuée (ID introuvable)");
+        }
+    },
 
-      const [rows] = await db.query(sql, params);
-      return rows;
-   },
+    delete: (id) => {
+        const stmt = db.prepare("DELETE FROM Inscriptions WHERE id = ?");
+        stmt.run(id);
+    },
 
-   getCandidatsValides: async () => {
-      const [rows] = await db.query(`
-         SELECT c.*, 
-                i.statut AS statut_inscription,
-                co.mention AS concours_mention
-         FROM Candidats c
-         JOIN Inscriptions i ON c.id = i.candidat_id
-         JOIN Concours co ON i.concours_id = co.id
-         WHERE i.statut = 'validé'
-      `);
-      return rows;
-   },
+    getAllWithDetails: () => {
+        const stmt = db.prepare(`
+            SELECT i.*,
+                   c.nom AS candidat_nom, c.prenom AS candidat_prenom,
+                   co.mention AS concours_mention
+            FROM Inscriptions i
+            JOIN Candidats c ON i.candidat_id = c.id
+            JOIN Concours co ON i.concours_id = co.id
+        `);
+        return stmt.all();
+    },
 
-   updateStatus: async (id, statut) => {
-      await db.query("UPDATE inscriptions SET statut = ? WHERE id = ?", [
-         statut,
-         id,
-      ]);
-   },
+    search: (searchTerm, statutFilter = null) => {
+        let sql = `
+            SELECT i.*,
+                   c.nom AS candidat_nom, c.prenom AS candidat_prenom,
+                   co.mention AS concours_mention
+            FROM Inscriptions i
+            JOIN Candidats c ON i.candidat_id = c.id
+            JOIN Concours co ON i.concours_id = co.id
+            WHERE (c.nom LIKE ? OR c.prenom LIKE ? OR co.mention LIKE ?)
+        `;
 
-   count: async () => {
-      const sql = "SELECT COUNT(*) AS total FROM inscriptions";
-      const [rows] = await pool.query(sql);
-      return rows[0].total; // retourne { total: X }
-   },
+        const params = [
+            `%${searchTerm}%`,
+            `%${searchTerm}%`,
+            `%${searchTerm}%`,
+        ];
 
-   countInscrit: async () => {
-      const sql = `SELECT c.*
-FROM Candidats c
-JOIN Inscriptions i ON c.id = i.candidat_id
-WHERE i.statut = 'validé';
-`;
-      const [rows] = await pool.query(sql);
-      return rows;
-   },
+        if (statutFilter) {
+            sql += " AND i.statut = ?";
+            params.push(statutFilter);
+        }
+
+        const stmt = db.prepare(sql);
+        return stmt.all(...params);
+    },
+
+    getCandidatsValides: () => {
+        const stmt = db.prepare(`
+            SELECT c.*,
+                   i.statut AS statut_inscription,
+                   co.mention AS concours_mention
+            FROM Candidats c
+            JOIN Inscriptions i ON c.id = i.candidat_id
+            JOIN Concours co ON i.concours_id = co.id
+            WHERE i.statut = 'valide'
+        `);
+        return stmt.all();
+    },
+
+    updateStatus: (id, statut) => {
+        const stmt = db.prepare(
+            "UPDATE Inscriptions SET statut = ? WHERE id = ?"
+        );
+        stmt.run(statut, id);
+    },
+
+    count: () => {
+        const stmt = db.prepare("SELECT COUNT(*) AS total FROM Inscriptions");
+        const row = stmt.get();
+        return row.total;
+    },
+
+    countInscrit: () => {
+        const stmt = db.prepare(`
+            SELECT c.*
+            FROM Candidats c
+            JOIN Inscriptions i ON c.id = i.candidat_id
+            WHERE i.statut = 'validé'
+        `);
+        return stmt.all();
+    },
 };
 
 module.exports = Inscription;

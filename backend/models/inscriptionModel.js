@@ -121,7 +121,7 @@ const Inscription = {
             SELECT c.*
             FROM Candidats c
             JOIN Inscriptions i ON c.id = i.candidat_id
-            WHERE i.statut = 'validé'
+            WHERE i.statut = 'valide'
         `);
         return stmt.all();
     },

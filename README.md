@@ -1,9 +1,11 @@
-## ReactJS + NodeJS
+## ReactJS + NodeJS + SQLite
+
+# Demo sur : [https://youtu.be/a8WYK4c-FLw](https://youtu.be/a8WYK4c-FLw)
 
 Quels sont les pre-requis ?
 
--  Installer NodeJS 👉 : [https://nodejs.org/en/download], installer la verions "LTS" pour windows ;
--  Node.js permet d'exécuter du JavaScript côté serveur.
+-   Installer NodeJS 👉 : [https://nodejs.org/en/download], installer la verions "LTS" pour windows ;
+-   Node.js permet d'exécuter du JavaScript côté serveur.
 
 ## Comment on run le frontend "React + vite" ?
 
